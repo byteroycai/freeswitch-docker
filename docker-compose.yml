@@ -1,0 +1,67 @@
+# Development compose file — builds the image locally.
+# For production use, see docker-compose.prod.yml or docker-compose.prod.bind.yml.
+#
+# Network modes (pick one via profile):
+#   docker compose --profile host   up -d   # best RTP performance, dedicates the host
+#   docker compose --profile bridge up -d   # port-mapped, coexists with host FreeSWITCH
+
+x-common: &common
+    image: freeswitch:1.10
+    build:
+        context: .
+        dockerfile: Dockerfile
+    container_name: freeswitch
+    restart: unless-stopped
+    volumes:
+        - fs-config:/usr/local/freeswitch/conf
+        - fs-logs:/usr/local/freeswitch/log
+        - fs-data:/usr/local/freeswitch/db
+        - fs-sounds:/usr/local/freeswitch/sounds
+        - fs-recordings:/usr/local/freeswitch/recordings
+        # Drop user hooks into ./entrypoint.d to extend startup without rebuilding.
+        - ./entrypoint.d:/docker-entrypoint.d:ro
+    environment:
+        - FS_DEFAULT_PASSWORD=${FS_DEFAULT_PASSWORD:-}
+        - FS_DOMAIN=${FS_DOMAIN:-localhost}
+        - FS_EXTERNAL_IP=${FS_EXTERNAL_IP:-auto}
+        - FS_ESL_PASSWORD=${FS_ESL_PASSWORD:-}
+        - FS_ESL_LISTEN_IP=${FS_ESL_LISTEN_IP:-127.0.0.1}
+    ulimits:
+        nofile:
+            soft: 65536
+            hard: 65536
+    cap_add:
+        - SYS_NICE
+        - SYS_RESOURCE
+
+services:
+    freeswitch-host:
+        <<: *common
+        profiles: ["host"]
+        network_mode: host
+
+    freeswitch-bridge:
+        <<: *common
+        profiles: ["bridge"]
+        ports:
+            - "${SIP_PORT:-5070}:5060/udp"
+            - "${SIP_PORT:-5070}:5060/tcp"
+            - "${SIP_TLS_PORT:-5071}:5061/tcp"
+            - "${SIP_EXT_PORT:-5090}:5080/udp"
+            - "${SIP_EXT_PORT:-5090}:5080/tcp"
+            - "${ESL_PORT:-8022}:8021/tcp"
+            - "${WS_PORT:-5067}:5066/tcp"
+            - "${WSS_PORT:-7444}:7443/tcp"
+            - "${RTP_START:-20000}-${RTP_END:-30000}:${RTP_START:-20000}-${RTP_END:-30000}/udp"
+
+# For SignalWire-gated modules, run `./build.sh` with SIGNALWIRE_TOKEN=...
+# before `docker compose up` — that path mounts the token as a BuildKit
+# secret without persisting it. Plain `docker compose build` uses the
+# token-free path (Debian main-repo packages only).
+
+volumes:
+    fs-config:
+    fs-logs:
+    fs-data:
+    fs-sounds:
+    fs-recordings:

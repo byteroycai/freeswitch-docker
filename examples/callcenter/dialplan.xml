@@ -1,0 +1,12 @@
+<include>
+    <!--
+        Route inbound 10xx calls to park. An ESL client subscribes to
+        CHANNEL_PARK and takes over from there (IVR, queue, agent routing).
+    -->
+    <extension name="callcenter_park">
+        <condition field="destination_number" expression="^\*?(10[0-9]{2})$">
+            <action application="answer"/>
+            <action application="park"/>
+        </condition>
+    </extension>
+</include>

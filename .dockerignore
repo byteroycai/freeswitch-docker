@@ -1,0 +1,11 @@
+.git
+.github
+.gitignore
+.signalwire_token
+.env
+*.md
+LICENSE
+data/
+examples/
+docker-compose*.yml
+build.sh

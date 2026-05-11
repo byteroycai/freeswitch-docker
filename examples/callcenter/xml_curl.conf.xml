@@ -1,0 +1,10 @@
+<configuration name="xml_curl.conf" description="cURL XML Gateway">
+    <bindings>
+        <binding name="directory">
+            <!-- Replace with your service URL. The endpoint must return
+                 a FreeSWITCH directory XML document for the requested user. -->
+            <param name="gateway-url" value="http://callcenter.example.com/api/v1/freeswitch/directory"/>
+            <param name="bindings" value="directory"/>
+        </binding>
+    </bindings>
+</configuration>

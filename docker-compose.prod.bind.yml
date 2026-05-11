@@ -1,0 +1,50 @@
+# Production compose file with bind-mounted data (convenient for ops/editing).
+# Initialise the data dir before the first start:
+#
+#   mkdir -p ${FS_DATA_DIR}/{conf,log,db,sounds,recordings}
+#   docker run --rm -v ${FS_DATA_DIR}/conf:/output ${IMAGE} \
+#       cp -a /usr/local/freeswitch/conf/. /output/
+
+x-common: &common
+    image: ${IMAGE:-freeswitch:1.10}
+    container_name: freeswitch
+    restart: unless-stopped
+    volumes:
+        - ${FS_DATA_DIR:-/opt/freeswitch/data}/conf:/usr/local/freeswitch/conf
+        - ${FS_DATA_DIR:-/opt/freeswitch/data}/log:/usr/local/freeswitch/log
+        - ${FS_DATA_DIR:-/opt/freeswitch/data}/db:/usr/local/freeswitch/db
+        - ${FS_DATA_DIR:-/opt/freeswitch/data}/sounds:/usr/local/freeswitch/sounds
+        - ${FS_DATA_DIR:-/opt/freeswitch/data}/recordings:/usr/local/freeswitch/recordings
+    environment:
+        - FS_DEFAULT_PASSWORD=${FS_DEFAULT_PASSWORD:-}
+        - FS_DOMAIN=${FS_DOMAIN:-localhost}
+        - FS_EXTERNAL_IP=${FS_EXTERNAL_IP:-auto}
+        - FS_ESL_PASSWORD=${FS_ESL_PASSWORD:-}
+        - FS_ESL_LISTEN_IP=${FS_ESL_LISTEN_IP:-127.0.0.1}
+    ulimits:
+        nofile:
+            soft: 65536
+            hard: 65536
+    cap_add:
+        - SYS_NICE
+        - SYS_RESOURCE
+
+services:
+    freeswitch-host:
+        <<: *common
+        profiles: ["host"]
+        network_mode: host
+
+    freeswitch-bridge:
+        <<: *common
+        profiles: ["bridge"]
+        ports:
+            - "${SIP_PORT:-5070}:5060/udp"
+            - "${SIP_PORT:-5070}:5060/tcp"
+            - "${SIP_TLS_PORT:-5071}:5061/tcp"
+            - "${SIP_EXT_PORT:-5090}:5080/udp"
+            - "${SIP_EXT_PORT:-5090}:5080/tcp"
+            - "${ESL_PORT:-8022}:8021/tcp"
+            - "${WS_PORT:-5067}:5066/tcp"
+            - "${WSS_PORT:-7444}:7443/tcp"
+            - "${RTP_START:-20000}-${RTP_END:-30000}:${RTP_START:-20000}-${RTP_END:-30000}/udp"
