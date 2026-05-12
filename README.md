@@ -42,13 +42,14 @@ All runtime config is via environment variables. See [`.env.example`](.env.examp
 
 ## Images
 
-A single source build produces three images:
+A single source build produces three images by default, plus an optional fourth:
 
 | Tag | Purpose | Size (arm64) |
 |---|---|---|
 | `freeswitch:builder` | Compile environment, kept for adding modules later via `scripts/build-mod.sh` | ~2 GB |
 | `freeswitch:1.10` | **Slim production runtime.** Trimmed module set, no fonts, 8/16 kHz MoH only. | **~290 MB** |
 | `freeswitch:1.10-dev` | **Development runtime.** Every compiled module + debug tools (`vim`, `tcpdump`, `strace`, `ss`, `lsof`). | ~830 MB |
+| `freeswitch:1.10-audiofork` | Slim runtime **+ [`mod_audio_fork`](https://github.com/byteroycai/mod_audio_fork)** (PCM/WebSocket call streaming). Opt-in via `WITH_AUDIO_FORK=1`. | ~300 MB |
 
 The slim image drops these by default:
 
@@ -87,6 +88,12 @@ PLATFORM=linux/amd64 ./build.sh
 
 # Enable SignalWire-gated modules (mod_signalwire, premium codecs/voices)
 SIGNALWIRE_TOKEN=pat-xxx ./build.sh
+
+# Also build the audiofork variant (slim + mod_audio_fork.so pre-baked)
+WITH_AUDIO_FORK=1 ./build.sh
+
+# Pin a specific mod_audio_fork ref (tag / commit / branch; default: main)
+WITH_AUDIO_FORK=1 MOD_AUDIO_FORK_REF=v1.0.0 ./build.sh
 ```
 
 ## Network modes

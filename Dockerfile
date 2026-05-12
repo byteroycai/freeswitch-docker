@@ -243,7 +243,57 @@ ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["freeswitch", "-nonat", "-nf"]
 
 # =============================================================================
-# Stage 5: runtime-dev — development image
+# Stage 5: audiofork-builder — compile out-of-tree mod_audio_fork
+# =============================================================================
+# Optional. mod_audio_fork is a third-party module (cmake project) that
+# streams call audio over a WebSocket. Built here against the same FS
+# headers/lib as the rest of the runtime so the .so is ABI-compatible.
+# Sources pulled from github.com/byteroycai/mod_audio_fork; pin a tag or
+# commit via MOD_AUDIO_FORK_REF for reproducible builds.
+FROM builder AS audiofork-builder
+
+ARG FS_PREFIX
+ARG MOD_AUDIO_FORK_REPO=https://github.com/byteroycai/mod_audio_fork.git
+ARG MOD_AUDIO_FORK_REF=main
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libwebsockets-dev libspeexdsp-dev \
+        libboost-dev libboost-system-dev libboost-thread-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone ${MOD_AUDIO_FORK_REPO} /usr/src/mod_audio_fork \
+    && cd /usr/src/mod_audio_fork \
+    && git checkout ${MOD_AUDIO_FORK_REF} \
+    && cmake -S . -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DFREESWITCH_INCLUDE_DIR=${FS_PREFIX}/include/freeswitch \
+        -DFREESWITCH_LIBRARY=${FS_PREFIX}/lib/libfreeswitch.so \
+        -DFREESWITCH_MOD_DIR=${FS_PREFIX}/mod \
+    && cmake --build build --parallel \
+    && cmake --install build \
+    && test -f ${FS_PREFIX}/mod/mod_audio_fork.so \
+    && strip --strip-unneeded ${FS_PREFIX}/mod/mod_audio_fork.so
+
+# =============================================================================
+# Stage 6: runtime-audiofork — slim runtime + mod_audio_fork pre-baked
+# =============================================================================
+# Same trim list as `runtime`, plus mod_audio_fork.so and its single extra
+# runtime dep (libwebsockets17). Everything else mod_audio_fork links to
+# (libspeexdsp, libboost-system/thread loaded transitively via FS itself,
+# libsofia-sip-ua, libcurl) is already present in the slim base.
+FROM runtime AS runtime-audiofork
+
+ARG FS_PREFIX
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libwebsockets17 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=audiofork-builder ${FS_PREFIX}/mod/mod_audio_fork.so ${FS_PREFIX}/mod/mod_audio_fork.so
+RUN chown freeswitch:freeswitch ${FS_PREFIX}/mod/mod_audio_fork.so
+
+# =============================================================================
+# Stage 7: runtime-dev — development image
 # =============================================================================
 # Same base + the full module set + a handful of debugging utilities. Use
 # this when you're iterating on configuration, capturing pcaps, or want

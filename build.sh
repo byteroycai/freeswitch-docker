@@ -6,14 +6,16 @@
 #   freeswitch:1.10-dev  — full module set + debug tools (vim, tcpdump, strace, ...)
 #
 # Env vars:
-#   IMAGE_NAME        target image name (default: freeswitch)
-#   FS_TAG            FreeSWITCH version tag (default: 1.10)
-#   PLATFORM          target platform, e.g. linux/amd64 (default: native)
-#   SIGNALWIRE_TOKEN  optional, enables SignalWire-gated modules
-#   MODULES_ENABLE    extra modules to enable at compile time
-#   BUILDER_DISABLE   modules that can't compile (default: signalwire+spandsp)
-#   MODULES_DISABLE   modules stripped from the slim runtime image
-#   SKIP_DEV=1        skip building the -dev variant
+#   IMAGE_NAME           target image name (default: freeswitch)
+#   FS_TAG               FreeSWITCH version tag (default: 1.10)
+#   PLATFORM             target platform, e.g. linux/amd64 (default: native)
+#   SIGNALWIRE_TOKEN     optional, enables SignalWire-gated modules
+#   MODULES_ENABLE       extra modules to enable at compile time
+#   BUILDER_DISABLE      modules that can't compile (default: signalwire+spandsp)
+#   MODULES_DISABLE      modules stripped from the slim runtime image
+#   SKIP_DEV=1           skip building the -dev variant
+#   WITH_AUDIO_FORK=1    also build freeswitch:${FS_TAG}-audiofork (slim + mod_audio_fork)
+#   MOD_AUDIO_FORK_REF   git ref of mod_audio_fork to compile (default: main)
 set -euo pipefail
 
 IMAGE_NAME="${IMAGE_NAME:-freeswitch}"
@@ -73,12 +75,32 @@ if [ "${SKIP_DEV:-0}" != "1" ]; then
         .
 fi
 
+if [ "${WITH_AUDIO_FORK:-0}" = "1" ]; then
+    AUDIO_FORK_BUILD_ARGS=()
+    [ -n "${MOD_AUDIO_FORK_REF:-}" ] && \
+        AUDIO_FORK_BUILD_ARGS+=(--build-arg "MOD_AUDIO_FORK_REF=${MOD_AUDIO_FORK_REF}")
+
+    echo "==> Building ${IMAGE_NAME}:${FS_TAG}-audiofork${TAG_SUFFIX} (slim + mod_audio_fork)"
+    docker build \
+        ${SECRET_ARG[@]+"${SECRET_ARG[@]}"} \
+        ${PLATFORM_ARG[@]+"${PLATFORM_ARG[@]}"} \
+        ${BUILD_ARGS[@]+"${BUILD_ARGS[@]}"} \
+        ${AUDIO_FORK_BUILD_ARGS[@]+"${AUDIO_FORK_BUILD_ARGS[@]}"} \
+        --target runtime-audiofork \
+        -t "${IMAGE_NAME}:${FS_TAG}-audiofork${TAG_SUFFIX}" \
+        .
+fi
+
 cat <<EOF
 
 Build complete. Images:
-  ${IMAGE_NAME}:builder${TAG_SUFFIX}        compile environment (~2 GB)
-  ${IMAGE_NAME}:${FS_TAG}${TAG_SUFFIX}             slim runtime (production)
-  ${IMAGE_NAME}:${FS_TAG}-dev${TAG_SUFFIX}         full + debug tools (development)
+  ${IMAGE_NAME}:builder${TAG_SUFFIX}             compile environment (~2 GB)
+  ${IMAGE_NAME}:${FS_TAG}${TAG_SUFFIX}                  slim runtime (production)
+  ${IMAGE_NAME}:${FS_TAG}-dev${TAG_SUFFIX}              full + debug tools (development)
+EOF
+[ "${WITH_AUDIO_FORK:-0}" = "1" ] && \
+    echo "  ${IMAGE_NAME}:${FS_TAG}-audiofork${TAG_SUFFIX}        slim + mod_audio_fork"
+cat <<EOF
 
 Run:    docker compose --profile host up -d
 Inspect: docker run --rm ${IMAGE_NAME}:${FS_TAG}${TAG_SUFFIX} freeswitch -version
