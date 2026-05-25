@@ -17,6 +17,9 @@ ARG FS_PREFIX=/usr/local/freeswitch
 # and lets scripts/build-mod.sh pull any module from this image without
 # rebuilding.
 FROM debian:${DEBIAN_VERSION} AS builder
+RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4 \
+ && sed -i 's|deb.debian.org|mirrors.tencentyun.com|g; s|security.debian.org|mirrors.tencentyun.com/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+ || true
 
 ARG DEBIAN_VERSION
 ARG FS_BRANCH
@@ -115,8 +118,7 @@ RUN set -eux; \
 
 RUN ./configure --prefix=${FS_PREFIX} --disable-fhs --without-erlang \
     && make -j"$(nproc)" \
-    && make install \
-    && make cd-moh-install
+    && make install
 
 # Strip <load module="..."/> entries for modules that didn't compile, so
 # FreeSWITCH doesn't log CRIT errors at startup trying to dlopen missing
@@ -205,6 +207,9 @@ RUN mkdir -p /runtime-libs \
 # Stage 4: runtime — production image (default target)
 # =============================================================================
 FROM debian:${DEBIAN_VERSION}-slim AS runtime
+RUN echo 'Acquire::ForceIPv4 "true";' > /etc/apt/apt.conf.d/99force-ipv4 \
+ && sed -i 's|deb.debian.org|mirrors.tencentyun.com|g; s|security.debian.org|mirrors.tencentyun.com/debian-security|g' /etc/apt/sources.list.d/debian.sources \
+ || true
 
 ARG FS_PREFIX
 ENV DEBIAN_FRONTEND=noninteractive \
