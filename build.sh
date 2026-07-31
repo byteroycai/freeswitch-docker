@@ -15,7 +15,8 @@
 #   MODULES_DISABLE      modules stripped from the slim runtime image
 #   SKIP_DEV=1           skip building the -dev variant
 #   WITH_AUDIO_FORK=1    also build freeswitch:${FS_TAG}-audiofork (slim + mod_audio_fork)
-#   MOD_AUDIO_FORK_REF   git ref of mod_audio_fork to compile (default: main)
+#   MOD_AUDIO_FORK_REF   git ref of mod_audio_fork to compile (default: v0.2.0 —
+#                        a TAG, not main; see the Dockerfile comment for why)
 set -euo pipefail
 
 IMAGE_NAME="${IMAGE_NAME:-freeswitch}"

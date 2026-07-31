@@ -253,13 +253,24 @@ CMD ["freeswitch", "-nonat", "-nf"]
 # Optional. mod_audio_fork is a third-party module (cmake project) that
 # streams call audio over a WebSocket. Built here against the same FS
 # headers/lib as the rest of the runtime so the .so is ABI-compatible.
-# Sources pulled from github.com/byteroycai/mod_audio_fork; pin a tag or
-# commit via MOD_AUDIO_FORK_REF for reproducible builds.
+# Sources pulled from github.com/byteroycai/mod_audio_fork.
+#
+# ★★★ The default is a TAG, not `main`.
+#
+#   docs/CONSTRAINTS.md sequence discipline ③ in duck-call is explicit: pin a
+#   tag, not main. The reason is rollback — `main` means the image you built
+#   yesterday and the image you build today can differ with nothing in the
+#   Dockerfile to show it, and "roll back the module" then has no target.
+#
+#   ⚠ Until 2026-07-31 the repo had **zero tags**, so `main` was the only
+#     option and this default was honest. v0.2.0 (PR-1..PR-4) is the first one.
+#   ★ Bump this deliberately when you want the new module; overriding
+#     MOD_AUDIO_FORK_REF=main is still there for testing an unreleased branch.
 FROM builder AS audiofork-builder
 
 ARG FS_PREFIX
 ARG MOD_AUDIO_FORK_REPO=https://github.com/byteroycai/mod_audio_fork.git
-ARG MOD_AUDIO_FORK_REF=main
+ARG MOD_AUDIO_FORK_REF=v0.2.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libwebsockets-dev libspeexdsp-dev \
